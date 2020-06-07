@@ -1,0 +1,413 @@
+#include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
+#include <sstream>
+#include <cstring>
+#include <windows.h>
+
+using namespace sf;
+
+float offsetX = 0, offsetY = 0;
+
+const int h = 12;
+const int w = 60;
+
+String TileMap[h] = {
+"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+"B                                B     B                   B",
+"B                                B     B                   B",
+"B                                B     B         00        B",
+"B 0                              B     B                   B",
+"B         0000                BBBB     B                   B",
+"B                                B     B         BB        B",
+"BBB                              B     B         BB        B",
+"B              BB                BB        000   BB    BBBBB",
+"B              BB                                     BBBBBB",
+"B    B         BB         BB                         BBBBBBB",
+"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+};
+
+String str1 = "B         0000                BBBB     B         00        B", str2 = "B              BB                BB        000   BB    BBBBB";
+
+
+
+class Player {
+public:
+	float dx, dy;
+	FloatRect rect;
+	bool onGround;
+	bool soundcheck;
+	Sprite sprite;
+	float currentFrame;
+	int playerScore;
+
+	Player(Texture& image) {
+		sprite.setTexture(image);
+		rect = FloatRect(7 * 32, 9 * 32, 40, 50);
+		playerScore = 0;
+		dx = dy = 0.1;
+		currentFrame = 0;
+		soundcheck = false;
+	}
+
+	void update(float time) {
+		rect.left += dx * time;
+		collision(0);
+		if (!onGround) dy = dy + 0.0005 * time;
+		rect.top += dy * time;
+		onGround = false;
+		collision(1);
+
+		currentFrame += 0.005 * time;
+		if (currentFrame > 6) currentFrame -= 6;
+
+		if (dx > 0) sprite.setTextureRect(IntRect(40 * int(currentFrame), 244, 40, 50));
+		if (dx < 0) sprite.setTextureRect(IntRect(40 * int(currentFrame) + 40, 244, -40, 50));
+
+
+		sprite.setPosition(rect.left - offsetX, rect.top - offsetY);
+
+		dx = 0;
+	}
+
+	void collision(int dir)
+	{
+		for (int i = rect.top / 32; i < (rect.top + rect.height) / 32; i++)
+			for (int j = rect.left / 32; j < (rect.left + rect.width) / 32; j++)
+			{
+				if (TileMap[i][j] == 'B')
+				{
+					if ((dx > 0) && (dir == 0)) rect.left = j * 32 - rect.width;
+					if ((dx < 0) && (dir == 0)) rect.left = j * 32 + 32;
+					if ((dy > 0) && (dir == 1)) { rect.top = i * 32 - rect.height;  dy = 0;   onGround = true; }
+					if ((dy < 0) && (dir == 1)) { rect.top = i * 32 + 32;   dy = 0; }
+				}
+
+				if (TileMap[i][j] == '0')
+				{
+					TileMap[i][j] = ' ';
+					playerScore++;
+					soundcheck = true;
+				}
+
+			}
+
+	}
+
+};
+
+class ENEMY
+{
+
+public:
+	ENEMY();
+
+	float dx, dy;
+	FloatRect rect;
+	bool onGround;
+	Sprite sprite;
+	float currentFrame;
+	bool life;
+	bool side;
+	bool visible;
+	int x, y;
+
+
+	void create(Texture& image, int n, int m) {
+		sprite.setTexture(image);
+		rect = FloatRect(n * 32, m * 32, 40, 50);
+		visible = true;
+		x = n;
+		y = m;
+	}
+
+	void update(float time)
+	{
+		if (!side && life) 	dx = 0.1;
+		if (side && life) dx = -0.1;
+		rect.left += dx * time;
+		Collision(0);
+
+		if (!onGround) dy = dy + 0.0005 * time;
+		rect.top += dy * time;
+		onGround = false;
+		Collision(1);
+
+		currentFrame += time * 0.005;
+		if (currentFrame > 2) currentFrame -= 2;
+
+		sprite.setTextureRect(IntRect(0, 0, 40, 50));
+		if (!life) sprite.setTextureRect(IntRect(41, 0, 40, 50));
+
+		sprite.setPosition(rect.left - offsetX, rect.top - offsetY);
+
+	}
+
+
+	void Collision(int dir)
+	{
+
+		for (int i = rect.top / 32; i < (rect.top + rect.height) / 32; i++)
+			for (int j = rect.left / 32; j < (rect.left + rect.width) / 32; j++)
+			{
+				if (TileMap[i][j] == 'B')
+				{
+					if ((dx > 0) && (dir == 0)) { rect.left = j * 32 - rect.width; dx = 0; side = true; }
+					if ((dx < 0) && (dir == 0)) { rect.left = j * 32 + 32; dx = 0; side = false; }
+					if ((dy > 0) && (dir == 1)) { rect.top = i * 32 - rect.height;  dy = 0;   onGround = true; }
+					if ((dy < 0) && (dir == 1)) { rect.top = i * 32 + 32;   dy = 0; }
+				}
+			}
+	}
+
+};
+
+ENEMY::ENEMY() {
+	dx = dy = 0.1;
+	life = true;
+}
+
+
+
+
+int main()
+{
+	FreeConsole();
+
+	
+
+
+	RenderWindow window(VideoMode(600, 384), "Twenty Points For Win", Style::Default);
+	int scrX = GetSystemMetrics(SM_CXSCREEN) - 50;
+	int scrY = GetSystemMetrics(SM_CYSCREEN) - 80;
+	window.setPosition(sf::Vector2i(0, 0));
+	window.setSize(sf::Vector2u(scrX, scrY));
+
+
+	Font font;//шрифт 
+	font.loadFromFile("CyrilicOld.ttf");
+	Text text("", font, 20);
+	text.setStyle(sf::Text::Bold | sf::Text::Underlined);
+
+
+	Text wintext("", font, 20);
+	wintext.setStyle(sf::Text::Bold | sf::Text::Underlined);
+
+	Text dietext("", font, 20);
+	dietext.setStyle(sf::Text::Bold | sf::Text::Underlined);
+
+	Text insttext("", font, 20);
+	insttext.setStyle(sf::Text::Bold | sf::Text::Underlined);
+
+
+	Texture t;
+	t.loadFromFile("fang.png");
+	Texture e;
+	e.loadFromFile("Enemy.png");
+	Texture til;
+	til.loadFromFile("tile.png");
+
+	Sprite tile(til);
+
+	float currentFrame = 0;
+	Player p(t);
+	ENEMY  enemy[2];
+	for (int i = 0; i < 2; i++) {
+		enemy[i].create(e, (20 + i * 10), 9);
+	}
+	
+	CircleShape shape(5.f);
+	shape.setFillColor(Color::Red);
+	float xshape = p.rect.left + 64;
+	float yshape = p.rect.top + p.rect.height / 2;
+
+	Music music;
+	music.openFromFile("music.ogg");
+
+	music.play();
+
+	SoundBuffer buffer;
+	buffer.loadFromFile("die.ogg");
+	Sound sound(buffer);
+
+	SoundBuffer buffer1;
+	buffer1.loadFromFile("kill.ogg");
+	Sound sound1(buffer1);
+
+	SoundBuffer useBuffer;
+	useBuffer.loadFromFile("use.ogg");
+	Sound use(useBuffer);
+
+	bool win = false;
+	bool ressurect = false;
+	bool die = false;
+	bool instruction = true;
+	bool boolWinMusic = false;
+	bool boolShape = false;
+
+	int enemyCount = 2;
+	float oldXShape;
+
+
+	Clock clock;
+
+	RectangleShape rectangle(Vector2f(32, 32));
+
+	while (window.isOpen()) {
+
+		float time = clock.getElapsedTime().asMicroseconds();
+		clock.restart();
+
+		time = time / 700;
+
+		if (time > 20) time = 20;
+
+		Event event;
+		while (window.pollEvent(event)) {
+			if (event.type == Event::Closed)
+				window.close();
+		}
+
+		if (Keyboard::isKeyPressed(Keyboard::Left) && !win) {
+			p.dx = -0.1;
+		}
+
+		if (Keyboard::isKeyPressed(Keyboard::Right) && !win) {
+			p.dx = 0.1;
+		}
+
+		if (Keyboard::isKeyPressed(Keyboard::Space) && !win) {
+			if (p.onGround) { p.dy = -0.4; p.onGround = false; }
+		}
+
+		if (Keyboard::isKeyPressed(Keyboard::F) && !win && !boolShape) {
+			xshape = p.rect.left + p.rect.width + shape.getRadius();
+			yshape = p.rect.top + p.rect.height / 2;
+			boolShape = true;
+			oldXShape = xshape;
+		}
+
+		if (boolShape) {
+			xshape += 0.05*time;
+		}
+		if (xshape - oldXShape == 6 * 32) boolShape = false;
+
+		p.update(time);
+		if (p.soundcheck) {
+			use.play();
+			p.soundcheck = false;
+		}
+		for (int i = 0; i < 2; i++) {
+			enemy[i].update(time);
+		}
+
+		for (int i = 0; i < 2; i++) {
+			if (p.rect.intersects(enemy[i].rect))
+			{
+				if (enemy[i].life && !die) {
+					if (p.dy > 0) { enemy[i].dx = 0; p.dy = -0.2; enemy[i].life = false; p.playerScore += 5; sound1.play(); }
+					// else p.sprite.setColor(Color::Red);
+					else {
+						for (int j = 0; j < 2; j++) {
+							if (!enemy[j].life) enemyCount -= 1;
+						}
+						die = true;
+						music.stop();
+						boolWinMusic = true;
+						break;
+					}
+				}
+			}
+			if (!enemy[i].life && (p.rect.left - enemy[i].rect.left >= 384)) enemy[i].visible = false;
+		}
+		if (ressurect) {
+			for (int i = 0; i < 2; i++) {
+				enemy[i].life = true;
+				enemy[i].visible = true;
+				enemy[i].rect = FloatRect(enemy[i].x * 32, enemy[i].y * 32, 40, 50);
+				ressurect = false;
+			}
+			offsetX = p.rect.left - 220;
+		}
+
+
+		if (p.rect.left > 300) offsetX = p.rect.left - 300;
+
+		if (instruction) {
+			window.clear(Color::Black);
+			insttext.setString("\t\t\t\t\t\t\tTwenty Points for Win\n\n\t\t\t\t\t\t\t\tУПРАВЛЕНИЕ:\n\nИспользуйте стрелки влево и впрво для передвижения\nИспользуйте пробел для прыжка\nЧтобы убить противника прыгните ему на голову.\nНажмите Enter для начала игры.");//задает строку тексту
+			insttext.setPosition(0, 100);//задаем позицию текста, центр камеры
+			window.draw(insttext);
+			if (Keyboard::isKeyPressed(Keyboard::Enter)) instruction = false;
+			window.display();
+		}
+
+		if (!instruction) {
+			window.clear(Color::White);
+
+			for (int i = 0; i < h; i++)
+				for (int j = 0; j < w; j++)
+				{
+					if (TileMap[i][j] == 'B') tile.setTextureRect(IntRect(0, 0, 32, 32));
+
+					if (TileMap[i][j] == '0')  tile.setTextureRect(IntRect(64, 0, 32, 32));
+
+					if (TileMap[i][j] == ' ') tile.setTextureRect(IntRect(32, 0, 32, 32));
+
+					tile.setPosition(j * 32 - offsetX, i * 32 - offsetY);
+					window.draw(tile);
+				}
+			if (p.playerScore >= 20) {
+				win = true;
+			}
+
+			window.draw(p.sprite);
+			std::stringstream ss;
+			std::string str;
+			ss << enemyCount;
+			ss >> str;
+			std::ostringstream playerScoreString;    // объявили переменную
+			playerScoreString << p.playerScore;
+			wintext.setString("Вы победили!\n Общий счёт:" + playerScoreString.str() + "\nНажмите Enter для выхода.");//задает строку тексту
+			wintext.setPosition(200, 192);//задаем позицию текста, центр камеры
+			dietext.setString("К сожалению, вы проиграли\nОбщий счёт: " + playerScoreString.str() + "\nВыживших врагов: " + str + "\nНажмите Enter для рестарта.");//задает строку тексту
+			dietext.setPosition(200, 192);//задаем позицию текста, центр камеры
+			if (!win) {
+				text.setString("Общий счёт:" + playerScoreString.str());//задает строку тексту
+				text.setPosition(0, 0);//задаем позицию текста
+				if (!die) window.draw(text);//рисую этот текст
+				for (int i = 0; i < 2; i++) {
+					if (enemy[i].visible) window.draw(enemy[i].sprite);
+				}
+			}
+
+			if (die) {
+				window.draw(dietext);
+				if (boolWinMusic) {
+					sound.play();
+					boolWinMusic = false;
+				}
+				if (Keyboard::isKeyPressed(Keyboard::Enter)) {
+					p.rect = FloatRect(7 * 32, 9 * 32, 40, 50);
+					p.playerScore = 0;
+					TileMap[5] = str1;
+					TileMap[8] = str2;
+					ressurect = true;
+					music.play();
+					die = false;
+					enemyCount = 2;
+				}
+			}
+
+			if (win) {
+				window.draw(wintext);
+				if (p.onGround) { p.dy = -0.2; p.onGround = false; }
+				if (Keyboard::isKeyPressed(Keyboard::Enter)) window.close();
+			}
+			shape.setPosition(xshape, yshape);
+			if (boolShape) window.draw(shape);
+			window.display();
+		}
+	}
+
+	return 0;
+}
